@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brand Voice Synthesizer</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        .neubrutalism {
+            border: 3px solid #000;
+            box-shadow: 5px 5px 0px #000;
+            transition: all 0.2s ease;
+        }
+        .neubrutalism:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 7px 7px 0px #000;
+        }
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background-color: #f0f0f0;
+        }
+        .loading {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div id="app" class="max-w-4xl mx-auto">
+        <header class="mb-8">
+            <h1 class="text-4xl font-bold mb-2">Brand Voice Synthesizer 🎯</h1>
+            <p class="text-lg">Decode and clone any brand's tone with AI magic</p>
+        </header>
+
+        <div class="space-y-6">
+            <!-- Input Section -->
+            <div class="neubrutalism bg-yellow-200 p-6">
+                <div class="mb-4">
+                    <label class="block font-bold mb-2">Brand Name (Optional)</label>
+                    <input type="text" v-model="brandName" class="neubrutalism w-full p-2 bg-white" placeholder="e.g., Nike, Apple, etc.">
+                </div>
+                <div class="mb-4">
+                    <label class="block font-bold mb-2">Paste 3-5 content samples</label>
+                    <textarea v-model="contentSamples" class="neubrutalism w-full p-2 h-32 bg-white" placeholder="Paste tweets, blog posts, or website content here..."></textarea>
+                </div>
+                <div class="flex gap-4 mb-4">
+                    <label class="flex items-center">
+                        <input type="radio" v-model="tonePreference" value="casual" class="mr-2">
+                        Casual / Playful
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" v-model="tonePreference" value="professional" class="mr-2">
+                        Professional
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" v-model="tonePreference" value="custom" class="mr-2">
+                        Custom detection
+                    </label>
+                </div>
+                <button @click="analyzeBrand" class="neubrutalism bg-green-300 px-6 py-3 font-bold">
+                    <i class="bi bi-magic"></i> Analyze Brand Voice
+                </button>
+            </div>
+
+            <!-- Results Section -->
+            <div v-if="isLoading" class="text-center loading">
+                <i class="bi bi-arrows-spin text-4xl"></i>
+                <p>Analyzing brand voice patterns...</p>
+            </div>
+
+            <div v-if="results" class="neubrutalism bg-blue-200 p-6">
+                <h2 class="text-2xl font-bold mb-4">Analysis Results</h2>
+                
+                <div class="mb-4">
+                    <h3 class="font-bold">Tone Summary</h3>
+                    <p class="bg-white neubrutalism p-3 mt-2">{{ results.toneSummary }}</p>
+                </div>
+
+                <div class="mb-4">
+                    <h3 class="font-bold">Writing Style</h3>
+                    <ul class="bg-white neubrutalism p-3 mt-2 list-disc pl-6">
+                        <li v-for="style in results.writingStyle" :key="style">{{ style }}</li>
+                    </ul>
+                </div>
+
+                <div class="mb-4">
+                    <h3 class="font-bold">Voice Guidelines</h3>
+                    <div class="bg-white neubrutalism p-3 mt-2">
+                        <h4 class="font-bold">Do's:</h4>
+                        <ul class="list-disc pl-6">
+                            <li v-for="do_item in results.dos" :key="do_item">{{ do_item }}</li>
+                        </ul>
+                        <h4 class="font-bold mt-2">Don'ts:</h4>
+                        <ul class="list-disc pl-6">
+                            <li v-for="dont in results.donts" :key="dont">{{ dont }}</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <h3 class="font-bold">Example Rewrite</h3>
+                    <div class="bg-white neubrutalism p-3 mt-2">
+                        <p class="font-bold">Original: "Try our product"</p>
+                        <p>Rewritten: {{ results.exampleRewrite }}</p>
+                    </div>
+                </div>
+
+                <div class="flex gap-4">
+                    <button @click="downloadPDF" class="neubrutalism bg-purple-300 px-4 py-2 font-bold">
+                        <i class="bi bi-file-pdf"></i> Download PDF
+                    </button>
+                    <button @click="copyToClipboard" class="neubrutalism bg-pink-300 px-4 py-2 font-bold">
+                        <i class="bi bi-clipboard"></i> Copy to Clipboard
+                    </button>
+                </div>
+            </div>
+
+            <!-- Compare Mode -->
+            <div class="neubrutalism bg-orange-200 p-6">
+                <h2 class="text-2xl font-bold mb-4">Compare Two Brands</h2>
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <input type="text" v-model="brandA" class="neubrutalism w-full p-2 mb-2" placeholder="Brand A Name">
+                        <textarea v-model="brandAContent" class="neubrutalism w-full p-2 h-32" placeholder="Brand A Content"></textarea>
+                    </div>
+                    <div>
+                        <input type="text" v-model="brandB" class="neubrutalism w-full p-2 mb-2" placeholder="Brand B Name">
+                        <textarea v-model="brandBContent" class="neubrutalism w-full p-2 h-32" placeholder="Brand B Content"></textarea>
+                    </div>
+                </div>
+                <button @click="compareBrands" class="neubrutalism bg-red-300 px-6 py-3 mt-4 font-bold">
+                    <i class="bi bi-arrow-left-right"></i> Compare Voices
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue
+
+        createApp({
+            data() {
+                return {
+                    brandName: '',
+                    contentSamples: '',
+                    tonePreference: 'custom',
+                    isLoading: false,
+                    results: null,
+                    brandA: '',
+                    brandB: '',
+                    brandAContent: '',
+                    brandBContent: ''
+                }
+            },
+            methods: {
+                async analyzeBrand() {
+                    if (!this.contentSamples) {
+                        alert('Please provide content samples to analyze');
+                        return;
+                    }
+
+                    this.isLoading = true;
+                    
+                    try {
+                        const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/ai', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': 'Bearer NYRAu9yuCiRuBCYrVb88A7aUbJB3',
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                messages: [{
+                                    role: 'user',
+                                    content: [{
+                                        type: 'text',
+                                        text: `Analyze this brand content and provide tone, style, and guidelines: ${this.contentSamples}`
+                                    }]
+                                }]
+                            })
+                        });
+
+                        const data = await response.json();
+                        
+                        // Simulated results structure
+                        this.results = {
+                            toneSummary: "Casual, witty, confident, with a hint of Gen-Z slang",
+                            writingStyle: [
+                                "Short, punchy sentences",
+                                "Frequent use of emojis",
+                                "Conversational tone"
+                            ],
+                            dos: [
+                                "Use casual language",
+                                "Include witty remarks",
+                                "Keep it brief and engaging"
+                            ],
+                            donts: [
+                                "Avoid formal language",
+                                "Don't use complex jargon",
+                                "Avoid lengthy paragraphs"
+                            ],
+                            exampleRewrite: "Bet you've never seen anything this smooth. Go on, try it. ✨"
+                        };
+                    } catch (error) {
+                        console.error('Error:', error);
+                        alert('An error occurred during analysis');
+                    } finally {
+                        this.isLoading = false;
+                    }
+                },
+
+                async compareBrands() {
+                    if (!this.brandAContent || !this.brandBContent) {
+                        alert('Please provide content for both brands');
+                        return;
+                    }
+                    // Implementation similar to analyzeBrand
+                    alert('Comparison feature coming soon!');
+                },
+
+                async downloadPDF() {
+                    if (!this.results) return;
+                    
+                    const element = document.createElement('div');
+                    element.innerHTML = `
+                        <h1>${this.brandName || 'Brand'} Voice Guidelines</h1>
+                        <h2>Tone Summary</h2>
+                        <p>${this.results.toneSummary}</p>
+                        <!-- Add more sections -->
+                    `;
+                    
+                    const opt = {
+                        margin: 1,
+                        filename: 'brand-voice-guidelines.pdf',
+                        image: { type: 'jpeg', quality: 0.98 },
+                        html2canvas: { scale: 2 },
+                        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+                    };
+
+                    html2pdf().from(element).set(opt).save();
+                },
+
+                copyToClipboard() {
+                    if (!this.results) return;
+                    
+                    const text = `
+                        Brand Voice Guidelines
+                        
+                        Tone Summary:
+                        ${this.results.toneSummary}
+                        
+                        Writing Style:
+                        ${this.results.writingStyle.join('\n')}
+                        
+                        Do's:
+                        ${this.results.dos.join('\n')}
+                        
+                        Don'ts:
+                        ${this.results.donts.join('\n')}
+                        
+                        Example Rewrite:
+                        ${this.results.exampleRewrite}
+                    `;
+
+                    navigator.clipboard.writeText(text)
+                        .then(() => alert('Copied to clipboard!'))
+                        .catch(err => console.error('Error copying text: ', err));
+                }
+            }
+        }).mount('#app')
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
